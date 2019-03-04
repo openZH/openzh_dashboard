@@ -1,0 +1,187 @@
+---
+title: "openZH Webstatistics Monitor *ALPHA*"
+output: 
+  flexdashboard::flex_dashboard:
+    css: custom.css
+    logo: zhwebmini.png
+    orientation: rows
+    social: menu
+    source_code: https://github.com/openZh/openzh_dashboard
+runtime: shiny
+---
+
+
+```{r setup, include=FALSE}
+
+library(flexdashboard)
+library(shiny)
+library(tidyverse)
+library(echarts4r)
+library(lubridate)
+
+# Dashboard built on top of opendata.swiss webstats
+
+# get metadata of webanalytics distributions
+urls <- jsonlite::fromJSON("https://opendata.swiss/api/3/action/package_show?id=web-analytics-der-open-government-data-des-kantons-zuerich")
+
+# get available months
+months <- substr(urls$result$resources$name$de,22,40)
+
+# last month
+month <- as.Date(paste0(format(as.Date(Sys.Date()), "%Y-%m"),"-01"))-1
+
+# matomo token needed to query the API
+matomo_token <- "YourMatomoToken"
+
+
+# function to retrieve monthly webstatsdata via matomo Api
+get_matomo_data <- function(endmonth,publisher){
+
+    data <- read.csv(paste0("https://piwik.opendata.swiss/index.php?module=API&method=CustomDimensions.getCustomDimension&format=csv&idSite=1&period=month&idDimension=1&reportUniqueId=CustomDimensions_getCustomDimension_idDimension--1&label=&date=2017-01-01%2C",month,"&filter_limit=false&format_metrics=1&expanded=1&idDimension=1&label=",publisher,"&token_auth=",matomo_token),skipNul = TRUE,encoding = "UTF-8", check.names = FALSE )
+    
+    names(data)[1]<- "date"
+    
+    return(data)
+
+}
+
+# retrieve data for the different data publishers affiliated with the canton of Zurich
+stats_time_data <- get_matomo_data(month,"statistisches-amt-kanton-zuerich")
+
+geo_time_data <- get_matomo_data(month,"geoinformation-kanton-zuerich")
+
+gemeindeamt_time_data <- get_matomo_data(month,"gemeindeamt-kanton-zuerich")
+
+archiv_time_data <- get_matomo_data(month,"staatsarchiv-kanton-zuerich")
+
+openzh_time_data <- get_matomo_data(month,"open-zh")
+
+# join webstats of the statistical office & unit for geoinformation
+time_data <- stats_time_data %>% 
+  left_join(geo_time_data,by=c("date"="date"))
+  
+# join new publishers data
+np_time_data <- archiv_time_data %>% 
+  left_join(gemeindeamt_time_data,by=c("date"="date")) %>% 
+  left_join(openzh_time_data, by=c("date"="date"))
+
+months <- substr(urls$result$resources$name$de,22,40)
+
+# create reactive dataframe based on input selection
+# switch url to http (https does not work from shinyapps.io)
+
+data <- reactive({read.csv(gsub("https","http",urls$result$resources$download_url[stringr::str_detect(urls$result$resources$name$de,input$urlselect)]),sep=";",encoding = "UTF-8", check.names = FALSE )})
+
+# 
+# gsub("https","http", urls$result$resources$download_url[1])
+
+# data <- read.csv(file=urls$result$resources$download_url[1],stringsAsFactors = F,sep=";")
+
+```
+
+
+Dashboard
+=======================================================================
+
+Row
+-----------------------------------------------------------------------
+
+### Besuche pro Monat (Statistisches Amt & Abteilung Geoinformation) (Durchschnitt) {.value-box}
+
+```{r}
+
+renderValueBox({
+  valueBox(round(mean(stats_time_data$nb_visits)), icon = "fa-users")
+})
+```
+
+### Besuche pro Monat, Neue Publisher (Durchschnitt) {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(value = round(mean(archiv_time_data$nb_visits)), icon = "fa-users")
+})
+
+```
+
+### Anzahl Publisher {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(value = 5, icon = "fa-users")
+})
+
+```
+
+
+Column
+-------------------------------------
+
+### Anzahl Besuche, Statistisches Amt & Abteilung Geoinformation (pro Monat) {data-width=700}
+
+```{r}
+renderEcharts4r({
+    time_data %>%
+      e_charts(date) %>%
+      e_line(nb_visits.x,name = "Statistisches Amt") %>% 
+      e_line(nb_visits.y,name = "Geoinformation") %>% 
+    e_theme_custom('{"color":["#00a7e7","#00637e"]}')
+  })
+```
+
+### Anzahl Besuche, neue Datepublisher (pro Monat) {data-width=700}
+
+```{r}
+renderEcharts4r({
+    np_time_data %>%
+      e_charts(date) %>%
+      e_bar(nb_visits,name = "Fachstelle OGD")%>% 
+      e_bar(nb_visits.x,name = "Staatsarchiv")%>% 
+      e_bar(nb_visits.y,name = "Gemeindeamt")%>% 
+   e_theme_custom('{"color":["#b3e9ff","#00a7e7","#00637e"]}')
+  })
+```
+
+
+Column
+-------------------------------------
+
+```{r}
+selectizeInput('urlselect', label= 'Zeitraum', choices = months, selected = "2018 Februar")
+```
+
+
+### Datensätze - Anzahl Besuche und Anteile an allen Besuchen {data-width=340}
+
+```{r}
+renderTable({
+  data() %>%
+    mutate(percent=nb_visits/sum(nb_visits)*100) %>% 
+    select(label,nb_visits,percent) %>% 
+    # arrange(desc(n), tolower(package)) %>%
+    # mutate(percentage = n / nrow(pkgData()) * 100) %>%
+    # select("Package" = package, "Percent" = percentage) %>%
+    as.data.frame() 
+}, digits = 1)
+
+# library(tidyverse)
+# 
+# data %>% 
+#   mutate(prozent=nb_visits/sum(nb_visits)*100)
+
+
+
+```
+
+
+
+Detailstatistik
+=======================================================================
+
+### Detailansicht - Datensätze
+
+```{r}
+renderTable({
+data()
+})
+```

@@ -1,0 +1,15 @@
+/* navbar color */
+.container-fluid {
+    background-color: #00a7e7;
+}
+
+/*active tab color*/
+.navbar-inverse .navbar-nav > .active > a, .navbar-inverse .navbar-nav > .active > a:hover, .navbar-inverse .navbar-nav > .active > a:focus {
+    color: #8fffff;
+    background-color: #8fc9e0;
+}
+
+/*value box background*/
+.bg-primary {
+    background-color: #00637e;;
+}
