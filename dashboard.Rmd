@@ -31,11 +31,11 @@ months <- substr(urls$result$resources$name$de,22,40)
 month <- as.Date(paste0(format(as.Date(Sys.Date()), "%Y-%m"),"-01"))-1
 
 # matomo token needed to query the API
-matomo_token <- "YourMatomoToken"
+token <- "YourApiToken"
 
 
 # function to retrieve monthly webstatsdata via matomo Api
-get_matomo_data <- function(endmonth,publisher){
+get_matomo_data <- function(endmonth,publisher,matomo_token=token){
 
     data <- read.csv(paste0("https://piwik.opendata.swiss/index.php?module=API&method=CustomDimensions.getCustomDimension&format=csv&idSite=1&period=month&idDimension=1&reportUniqueId=CustomDimensions_getCustomDimension_idDimension--1&label=&date=2017-01-01%2C",month,"&filter_limit=false&format_metrics=1&expanded=1&idDimension=1&label=",publisher,"&token_auth=",matomo_token),skipNul = TRUE,encoding = "UTF-8", check.names = FALSE )
     
