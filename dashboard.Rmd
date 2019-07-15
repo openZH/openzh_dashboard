@@ -157,7 +157,7 @@ selectizeInput('urlselect', label= 'Zeitraum', choices = months, selected = "201
 renderTable({
   data() %>%
     mutate(percent=nb_visits/sum(nb_visits)*100) %>% 
-    select(label,nb_visits,percent) %>% 
+    select(1,nb_visits,percent) %>% 
     # arrange(desc(n), tolower(package)) %>%
     # mutate(percentage = n / nrow(pkgData()) * 100) %>%
     # select("Package" = package, "Percent" = percentage) %>%
